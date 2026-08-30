@@ -70,6 +70,10 @@ association[1] to /DMO/I_Overall_Status_VH as _OverallStatus on
     /dmo/travel_m.last_changed_by as LastChangedBy,
     @Semantics.systemDateTime.lastChangedAt: true
     /dmo/travel_m.last_changed_at as LastChangedAt,
+    cast(
+          'https://yt3.googleusercontent.com/bDPjjcxymXP6PGdXVx_wNAeX9ZANW4-7qeeaccErodOpZ_paGZMTNIcZAKxN0SOtUs2KmgBwXCk=s900-c-k-c0x00ffffff-no-rj'
+          as abap.char(500)
+        ) as ImageUrl,
     _Agency,
     _Customer,
     _Currency,

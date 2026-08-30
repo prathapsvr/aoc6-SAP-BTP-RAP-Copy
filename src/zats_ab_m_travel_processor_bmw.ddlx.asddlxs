@@ -3,8 +3,8 @@
     typeName: 'Travel Request',
     typeNamePlural: 'Travel Requests',
     title: { value : 'TravelId' },
-    description : { value: 'Description' }
-    
+    description : { value: 'Description' },
+    imageUrl: 'ImageUrl'
 }
 annotate entity ZATS_AB_M_TRAVEL_PROCESSOR
     with 

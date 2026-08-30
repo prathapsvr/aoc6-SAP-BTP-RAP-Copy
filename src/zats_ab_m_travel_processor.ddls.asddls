@@ -24,5 +24,6 @@ define root view entity ZATS_AB_M_TRAVEL_PROCESSOR as projection on ZATS_AB_M_TR
     AgencyName,
     CustomerName,
     StatusText,
-    Minion
+    Minion,
+    ImageUrl
 }

@@ -2,6 +2,7 @@
 @EndUserText.label: 'Processor Supplement data'
 @Metadata.ignorePropagatedAnnotations: false
 @VDM.viewType: #CONSUMPTION
+@Metadata.allowExtensions: true
 define view entity ZATS_AB_M_BOOKSUPPL_PROCESSOR as projection on ZATS_AB_M_BOOKSUPPL
 {
     key TravelId,
