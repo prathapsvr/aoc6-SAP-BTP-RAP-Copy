@@ -1,10 +1,12 @@
 //greenfield where we want framework to generate basic impl. code
-managed implementation in class zbp_ats_ab_m_travel unique;
+managed ;
 //best practice which compile our code in strict mode 2
 strict ( 2 );
 
 //defining the behavior definition
 define behavior for ZATS_AB_M_TRAVEL alias Travel
+//moving line here for travel behavior pool - amit's responsibility
+implementation in class zbp_ats_ab_m_travel unique
 //because f/w will create code for CRUD, tell f/w which db table it has to interact
 persistent table /dmo/travel_m
 //which entity is considered as super entity for lock mechanism
@@ -13,12 +15,16 @@ lock master
 authorization master ( instance )
 //to manage concurrency control
 etag master LastChangedAt
+//early numbering to generate travel id
+early numbering
+//late numbering
 {
   //AUTHORITY-CHECK to ensure that a valid user is performing task on our Tx.
   create ( authorization : global );
   update;
   delete;
-  //field ( readonly ) TravelId;
+  field ( readonly ) TravelId;
+  field ( mandatory ) begindate, enddate, description, agencyid, customerid;
   //direct booking w/o a travel is not possible
   association _Booking { create; }
 
@@ -41,14 +47,17 @@ etag master LastChangedAt
 }
 
 define behavior for ZATS_AB_M_BOOKING alias Booking
+//add a new line for new class pool so prachi can work with booking parallel to amit
+implementation in class zbp_ats_ab_m_booking unique
 persistent table /dmo/booking_m
 lock dependent by _Travel
 authorization dependent by _Travel
 etag master LastChangedAt
+early numbering
 {
   update;
   delete;
-  field ( readonly ) TravelId;
+  field ( readonly ) TravelId, Bookingid;
   association _Travel;
   association _BookSuppl { create; }
 
@@ -71,10 +80,11 @@ persistent table /dmo/booksuppl_m
 lock dependent by _Travel
 authorization dependent by _Travel
 etag master LastChangedAt
+early numbering
 {
   update;
   delete;
-  field ( readonly ) TravelId, BookingId;
+  field ( readonly ) TravelId, BookingId, BookingSupplementId;
   association _Travel;
   association _Booking;
 

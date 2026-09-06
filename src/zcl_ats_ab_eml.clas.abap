@@ -19,7 +19,7 @@ CLASS zcl_ats_ab_eml IMPLEMENTATION.
 
     case lv_opr.
         when 'R'.
-            READ ENTITIES OF ZATS_AB_M_TRAVEL
+            READ ENTITIES OF ZATS_AB_M_TRAVEL in local mode
                 ENTITY Travel
                 fields ( travelid begindate agencyid customerid overallstatus )
                 with VALUE #(
