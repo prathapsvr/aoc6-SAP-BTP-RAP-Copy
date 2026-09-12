@@ -23,10 +23,17 @@ early numbering
   create ( authorization : global );
   update;
   delete;
+
+  //static feature control
   field ( readonly ) TravelId;
   field ( mandatory ) begindate, enddate, description, agencyid, customerid;
+
+  //factory - instance bound - data action
+  factory action copyTravel[1];
+
   //direct booking w/o a travel is not possible
-  association _Booking { create; }
+  //dynamic feature control //
+  association _Booking { create (features:instance); }
 
   mapping for /dmo/travel_m{
     travelid = travel_id;
