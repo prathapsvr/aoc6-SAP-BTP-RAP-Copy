@@ -3,6 +3,10 @@ CLASS lhc_Booking DEFINITION INHERITING FROM cl_abap_behavior_handler.
 
     METHODS earlynumbering_cba_Booksuppl FOR NUMBERING
        entities FOR CREATE Booking\_Booksuppl.
+    METHODS get_instance_features FOR INSTANCE FEATURES
+      keys REQUEST requested_features FOR Booking RESULT result.
+    METHODS calculatetotalprice FOR DETERMINE ON MODIFY
+      keys FOR booking~calculatetotalprice.
 
 ENDCLASS.
 
@@ -62,6 +66,39 @@ CLASS lhc_Booking IMPLEMENTATION.
         endloop.
     endloop.
 
+
+  ENDMETHOD.
+
+  METHOD get_instance_features.
+
+    ""Step 1: Read the data using EML
+    READ ENTITIES OF zats_ab_m_travel in local mode
+        entity booking
+            fields ( bookingid CarrierId )
+            with corRESPONDING #(   keys )
+            result data(lt_bookings)
+            failed failed.
+
+    result = VALUE #(
+      FOR ls_booking IN lt_bookings
+        ( %tky = ls_booking-%tky
+          %features-%field-ConnectionId =
+            COND #(
+              WHEN ls_booking-CarrierId ne 'AA'
+              THEN if_abap_behv=>fc-f-read_only
+              ELSE if_abap_behv=>fc-f-unrestricted
+            )
+        )
+    ).
+
+  ENDMETHOD.
+
+  METHOD calculateTotalPrice.
+
+        modiFY entities of zats_ab_m_travel in local mode
+        entity travel
+            execute calcTotalPrice
+                from corRESPONDING #( keys ).
 
   ENDMETHOD.
 

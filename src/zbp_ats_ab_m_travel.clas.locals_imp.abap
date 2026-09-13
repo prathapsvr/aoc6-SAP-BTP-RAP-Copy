@@ -10,6 +10,12 @@ CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
       keys REQUEST requested_features FOR Travel RESULT result.
     METHODS copytravel FOR MODIFY
       keys FOR ACTION travel~copytravel.
+    METHODS calctotalprice FOR MODIFY
+      keys FOR ACTION travel~calctotalprice.
+    METHODS calculatetotalprice FOR DETERMINE ON MODIFY
+      keys FOR travel~calculatetotalprice.
+    METHODS validateheaderdata FOR VALIDATE ON SAVE
+      keys FOR travel~validateheaderdata.
     METHODS earlynumbering_cba_Booking FOR NUMBERING
       entities FOR CREATE Travel\_Booking.
     METHODS earlynumbering_create FOR NUMBERING
@@ -291,6 +297,175 @@ CLASS lhc_Travel IMPLEMENTATION.
 
 
     mapped-travel = mapped_create-travel.
+
+
+  ENDMETHOD.
+
+  METHOD calcTotalPrice.
+
+*    Define a structure to store AMT+CURRENCY
+     types: beGIN OF ty_amount_per_Currency,
+                amount type /dmo/total_price,
+                currency_code type /dmo/currency_code,
+            end of ty_amount_per_Currency.
+
+*    Create a internal table for that structure
+     data: amounts_per_currency type standard table of ty_amount_per_Currency.
+
+*    First add the booking fee to the table
+     READ ENTITIES OF ZATS_AB_M_TRAVEL IN LOCAL MODE
+        ENTITY Travel
+        FIELDS ( BookingFee CurrencyCode )
+        WITH CORRESPONDING #( keys )
+        RESULT DATA(travels).
+
+*    Read all the bookings inside my travel req. loop at each booking data and conv to common currency and total
+     READ ENTITIES OF ZATS_AB_M_TRAVEL IN LOCAL MODE
+        ENTITY Travel by \_Booking
+        FIELDS ( FlightPrice CurrencyCode )
+        WITH CORRESPONDING #( travels )
+        RESULT DATA(bookings).
+
+*    Read each of the supplement data, loop at it and convert it to common currency and total
+     READ ENTITIES OF ZATS_AB_M_TRAVEL IN LOCAL MODE
+        ENTITY Booking by \_BookSuppl
+        FIELDS ( Price CurrencyCode )
+        WITH CORRESPONDING #( bookings )
+        RESULT DATA(bookingsupplements).
+
+
+     "Delete all records which does not have currency code -- Thorw Exception
+     DELETE travels where currencycode is initial.
+     DELETE bookings where currencycode is initial.
+     DELETE bookingsupplements where currencycode is initial.
+
+*    Total amount will be calculated by summing in common curr (header)
+     loop at travels assIGNING fIELD-SYMBOL(<travel>).
+
+        "Set our first value in internal table for booking fee which comes from header
+        amounts_per_currency = value #( ( amount = <travel>-BookingFee currency_code = <travel>-CurrencyCode ) ).
+
+        "Loop at booking data and accumulate all bookings total in each currency
+        loop at bookings into data(booking) where travelid = <travel>-TravelId.
+
+            collect value ty_amount_per_currency( amount = booking-FlightPrice currency_code = booking-CurrencyCode )
+                        into amounts_per_currency.
+
+        endloop.
+
+        loop at bookingsupplements into data(supplement) where travelid = <travel>-TravelId.
+
+            collect value ty_amount_per_currency( amount = supplement-Price currency_code = supplement-CurrencyCode )
+                        into amounts_per_currency.
+
+        endloop.
+
+     endloop.
+
+     "loop at each record in our temp table, compare currency at header, if not match convert and total
+     clear <travel>-TotalPrice.
+
+     loop at amounts_per_currency into data(amount_per_currency).
+
+        if amount_per_currency-currency_code = <travel>-CurrencyCode.
+            <travel>-TotalPrice += amount_per_currency-amount.
+        else.
+
+            "currency conversion
+            /dmo/cl_flight_amdp=>convert_currency(
+              EXPORTING
+                iv_amount               = amount_per_currency-amount
+                iv_currency_code_source = amount_per_currency-currency_code
+                iv_currency_code_target = <travel>-CurrencyCode
+                iv_exchange_rate_date   = cl_abap_context_info=>get_system_date(  )
+              IMPORTING
+                ev_amount               = data(total_amount)
+            ).
+
+            <travel>-TotalPrice += total_amount.
+        endif.
+
+     endloop.
+
+
+*    EML to update data in database for the current travel request
+      MODIFY ENTITIES OF zats_ab_m_travel in local mode
+        entity travel
+            update fields ( totalprice )
+            with corrESPONDING #( travels ).
+
+*    Return the result data in the output
+
+
+  ENDMETHOD.
+
+  METHOD calculateTotalPrice.
+
+    modiFY entities of zats_ab_m_travel in local mode
+        entity travel
+            execute calcTotalPrice
+                from corRESPONDING #( keys ).
+
+  ENDMETHOD.
+
+  METHOD validateHeaderData.
+
+
+    "Read the incoming data
+    read eNTITIES OF zats_ab_m_travel in local mode
+        entity travel
+        fields ( customerid begindate enddate agencyid )
+        with corRESPONDING #( keys )
+        result data(lt_travel).
+
+
+    "Declare itab of unique customer id's which needs to be validated
+    data customers type sorTED TABLE OF /dmo/customer with UNIQUE key customer_id.
+
+    ""unique customer ids in a table
+    customers = corrESPONDING #( lt_travel DISCARDING DUPLICATES mapping
+                                        customer_id = customerid except *
+                                    ).
+
+    delete customers where customer_id is iniTIAL.
+
+    ""Call DB to fetch valid customers from master data table
+    if customers is not initial.
+        select from /dmo/customer fields customer_id
+                for all entries in @customers
+                    where customer_id = @customers-customer_id
+                    into table @data(lt_db_customers).
+
+    endif.
+
+    loop at lt_travel into data(ls_travel).
+
+
+
+        if ( ls_travel-CustomerId is initial or
+             not line_exists( lt_db_customers[ customer_id = ls_travel-CustomerId ] )
+           ).
+
+            append value #( %tky = ls_travel-%tky ) to failed-travel.
+            append value #( %tky = ls_travel-%tky
+                            %element-customerid = if_abap_behv=>mk-on
+                            %msg = new /dmo/cm_flight_messages(
+                                textid = /dmo/cm_flight_messages=>customer_unkown
+                                customer_id = ls_travel-CustomerId
+                                severity = if_abap_behv_message=>severity-error
+                             )
+            ) to reported-travel.
+
+        endif.
+
+    ""TODO: Homework
+    "1. validate agency
+    "2. check if begin and end dates are not blank
+    "3. begin date must be less than end date
+    "4. begin data must be >= today
+
+    endloop.
+
 
 
   ENDMETHOD.
