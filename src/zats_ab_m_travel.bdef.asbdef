@@ -2,6 +2,8 @@
 managed ;
 //best practice which compile our code in strict mode 2
 strict ( 2 );
+//enable draft support
+with collaborative draft;
 
 //defining the behavior definition
 define behavior for ZATS_AB_M_TRAVEL alias Travel
@@ -11,8 +13,13 @@ implementation in class zbp_ats_ab_m_travel unique
 persistent table /dmo/travel_m
 //which entity is considered as super entity for lock mechanism
 lock master
+//mention total etag
+total etag LastChangedAt
 //AUTHORITY-CHECK to ensure that a valid user is performing task on our Tx.
 authorization master ( instance )
+//declare draft table
+//for collab draft, add a view , quick fix to create it
+draft table zats_ab_dtravel query zats_ab_qtr
 //to manage concurrency control
 etag master LastChangedAt
 //early numbering to generate travel id
@@ -23,6 +30,14 @@ early numbering
   create ( authorization : global );
   update;
   delete;
+
+  //enable draft actions - in future i can use code to trigger w/f, send email...
+  draft determine action Prepare;
+  draft action Edit;
+  draft action Resume;
+  draft action Activate;
+  draft action Discard;
+  draft action Share;
 
   //static feature control
   field ( readonly ) TravelId;
@@ -36,20 +51,26 @@ early numbering
 
 
   //determination that update my tx buffer during interaction (create, update)
-  determination calculateTotalPrice on modify
+  determination calculateTotalPrice on save
                         { create; field BookingFee, CurrencyCode; }
 
   //validation - check business data before save
   validation validateHeaderData on save { create; field customerid, agencyid, begindate, enddate; }
 
+  determine action validateCustomer { validation   validateHeaderData; }
+
   //ui scenario - we want fiori to make a round trip to load total price whenever booking fee is updated
   side effects {
     field BookingFee affects field TotalPrice;
+    //we cannot trigger direct validation when user change the customer id
+    //since we want to validate data ON FLY while user is editing draft, and show relevant message
+    //we can create determine action and add it in side effect
+    determine action validateCustomer executed on field CustomerId affects messages;
   }
 
   //direct booking w/o a travel is not possible
   //dynamic feature control //
-  association _Booking { create (features:instance); }
+  association _Booking { create (features:instance); with draft; }
 
   mapping for /dmo/travel_m{
     travelid = travel_id;
@@ -73,6 +94,8 @@ define behavior for ZATS_AB_M_BOOKING alias Booking
 //add a new line for new class pool so prachi can work with booking parallel to amit
 implementation in class zbp_ats_ab_m_booking unique
 persistent table /dmo/booking_m
+//define table to store booking draft data
+draft table zats_ab_dbook
 lock dependent by _Travel
 authorization dependent by _Travel
 etag master LastChangedAt
@@ -93,7 +116,7 @@ early numbering
   }
 
   association _Travel;
-  association _BookSuppl { create; }
+  association _BookSuppl { create; with draft; }
 
   mapping for /dmo/booking_m{
     TravelId = travel_id;
@@ -112,6 +135,7 @@ early numbering
 define behavior for ZATS_AB_M_BOOKSUPPL alias BookSuppl
 implementation in class zbp_ats_ab_m_booksuppl unique
 persistent table /dmo/booksuppl_m
+draft table zats_ab_dsupp
 lock dependent by _Travel
 authorization dependent by _Travel
 etag master LastChangedAt

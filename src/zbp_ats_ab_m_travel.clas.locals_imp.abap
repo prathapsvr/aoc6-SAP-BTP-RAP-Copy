@@ -12,7 +12,7 @@ CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
       keys FOR ACTION travel~copytravel.
     METHODS calctotalprice FOR MODIFY
       keys FOR ACTION travel~calctotalprice.
-    METHODS calculatetotalprice FOR DETERMINE ON MODIFY
+    METHODS calculatetotalprice FOR DETERMINE ON SAVE
       keys FOR travel~calculatetotalprice.
     METHODS validateheaderdata FOR VALIDATE ON SAVE
       keys FOR travel~validateheaderdata.
@@ -116,7 +116,8 @@ CLASS lhc_Travel IMPLEMENTATION.
         travel_id_max += 1.
         entity-TravelId = travel_id_max.
 
-        append value #( %cid = entity-%cid %key = entity-%key ) to mapped-travel.
+        append value #( %cid = entity-%cid %key = entity-%key
+                        %is_draft = entity-%is_draft ) to mapped-travel.
 
     endLOOP.
 
@@ -420,14 +421,19 @@ CLASS lhc_Travel IMPLEMENTATION.
 
 
     "Declare itab of unique customer id's which needs to be validated
-    data customers type sorTED TABLE OF /dmo/customer with UNIQUE key customer_id.
+    data : customers type sorTED TABLE OF /dmo/customer with UNIQUE key customer_id,
+           agencies type sorTED TABLE OF /dmo/agency with UNIQUE key agency_id.
 
     ""unique customer ids in a table
     customers = corrESPONDING #( lt_travel DISCARDING DUPLICATES mapping
                                         customer_id = customerid except *
                                     ).
+    agencies = corrESPONDING #( lt_travel DISCARDING DUPLICATES mapping
+                                        agency_id = agencyid except *
+                                    ).
 
     delete customers where customer_id is iniTIAL.
+    delete agencies where agency_id is iniTIAL.
 
     ""Call DB to fetch valid customers from master data table
     if customers is not initial.
@@ -435,6 +441,13 @@ CLASS lhc_Travel IMPLEMENTATION.
                 for all entries in @customers
                     where customer_id = @customers-customer_id
                     into table @data(lt_db_customers).
+
+    endif.
+    if agencies is not initial.
+        select from /dmo/agency fields agency_id
+                for all entries in @agencies
+                    where agency_id = @agencies-agency_id
+                    into table @data(lt_db_agencies).
 
     endif.
 
@@ -460,9 +473,63 @@ CLASS lhc_Travel IMPLEMENTATION.
 
     ""TODO: Homework
     "1. validate agency
+        if ( ls_travel-AGENCYID is initial or
+             not line_exists( lt_db_agencies[ agency_id = ls_travel-AGENCYID ] )
+           ).
+
+            append value #( %tky = ls_travel-%tky ) to failed-travel.
+            append value #( %tky = ls_travel-%tky
+                            %element-agencyid = if_abap_behv=>mk-on
+                            %msg = new /dmo/cm_flight_messages(
+                                textid = /dmo/cm_flight_messages=>agency_unkown
+                                customer_id = ls_travel-AgencyId
+                                severity = if_abap_behv_message=>severity-error
+                             )
+            ) to reported-travel.
+
+        endif.
+
     "2. check if begin and end dates are not blank
+        if ( ls_travel-BeginDate is initial or ls_travel-EndDate is initial ).
+
+            append value #( %tky = ls_travel-%tky ) to failed-travel.
+            append value #( %tky = ls_travel-%tky
+                            %element-begindate = if_abap_behv=>mk-on
+                            %element-enddate = if_abap_behv=>mk-on
+                            %msg = new /dmo/cm_flight_messages(
+                                textid = value #( msgid = 'SY' msgno = 499 attr1 = 'Amigo! the date cannot be empty' )
+                                severity = if_abap_behv_message=>severity-error
+                             )
+            ) to reported-travel.
+
+        endif.
     "3. begin date must be less than end date
+        if ( ls_travel-BeginDate > ls_travel-EndDate  ).
+
+            append value #( %tky = ls_travel-%tky ) to failed-travel.
+            append value #( %tky = ls_travel-%tky
+                            %element-begindate = if_abap_behv=>mk-on
+                            %element-enddate = if_abap_behv=>mk-on
+                            %msg = new /dmo/cm_flight_messages(
+                                textid = /dmo/cm_flight_messages=>begin_date_bef_end_date
+                                severity = if_abap_behv_message=>severity-error
+                             )
+            ) to reported-travel.
+
+        endif.
     "4. begin data must be >= today
+    if ( ls_travel-BeginDate < cl_abap_Context_info=>get_system_date( )  ).
+
+            append value #( %tky = ls_travel-%tky ) to failed-travel.
+            append value #( %tky = ls_travel-%tky
+                            %element-begindate = if_abap_behv=>mk-on
+                            %msg = new /dmo/cm_flight_messages(
+                                textid = /dmo/cm_flight_messages=>begin_date_on_or_bef_sysdate
+                                severity = if_abap_behv_message=>severity-error
+                             )
+            ) to reported-travel.
+
+        endif.
 
     endloop.
 
