@@ -1,3 +1,57 @@
+CLASS lsc_zats_ab_m_travel DEFINITION INHERITING FROM cl_abap_behavior_saver.
+
+  PROTECTED SECTION.
+
+    METHODS save_modified REDEFINITION.
+
+ENDCLASS.
+
+CLASS lsc_zats_ab_m_travel IMPLEMENTATION.
+
+  METHOD save_modified.
+
+      data: travel_log_update type standard table of /dmo/log_travel,
+            final_changes    type standard table of /dmo/log_travel.
+
+       "Step 1: check if the operation is update only
+       if update-travel is not initial.
+
+            travel_log_update = corrESPONDING #(  update-travel mapping travel_id = travelid ).
+
+            loop at update-travel assIGNING fiELD-SYMBOL(<travel_log_update>).
+
+                assign travel_log_update[ travel_id = <travel_log_update>-TravelId ]
+                                to field-sYMBOL(<travel_log_db>).
+
+                get time STAMP FIELD <travel_log_db>-created_at.
+
+                if <travel_log_update>-%control-CustomerId = if_abap_behv=>mk-on.
+                    <travel_log_db>-change_id = cl_system_uuid=>create_uuid_x16_static(  ).
+                    <travel_log_db>-changed_field_name = 'anubhav_Customer'.
+                    <travel_log_db>-changed_value = <travel_log_update>-CustomerId.
+                    <travel_log_db>-changing_operation = 'CHANGE'.
+                    append <travel_log_db> to final_changes.
+                endif.
+
+                if <travel_log_update>-%control-AgencyId = if_abap_behv=>mk-on.
+                    <travel_log_db>-change_id = cl_system_uuid=>create_uuid_x16_static(  ).
+                    <travel_log_db>-changed_field_name = 'anubhav_agency'.
+                    <travel_log_db>-changed_value = <travel_log_update>-AgencyId.
+                    <travel_log_db>-changing_operation = 'CHANGE'.
+                    append <travel_log_db> to final_changes.
+                endif.
+
+            endloop.
+
+            insert /dmo/log_travel from table @final_changes.
+
+       endif.
+
+
+  ENDMETHOD.
+
+ENDCLASS.
+
 CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
   PRIVATE SECTION.
 
@@ -16,6 +70,27 @@ CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
       keys FOR travel~calculatetotalprice.
     METHODS validateheaderdata FOR VALIDATE ON SAVE
       keys FOR travel~validateheaderdata.
+    METHODS precheck_create FOR PRECHECK
+      entities FOR CREATE travel.
+
+    METHODS precheck_update FOR PRECHECK
+      entities FOR UPDATE travel.
+
+    ""A reusable private method with matching io params and types to reuse code
+    types: t_entity_create   type table for create              zats_ab_m_travel\\travel,
+           t_entity_update   type table for update              zats_ab_m_travel\\travel,
+           t_entity_failed   type response for failed early     zats_ab_m_travel,
+           t_entity_reported type response for reported early   zats_ab_m_travel.
+
+    methods precheck_anubhav_reuse
+        importing
+            entity_c type t_entity_create optional
+            entity_u type t_entity_update optional
+        expoRTING
+            failed type t_entity_failed
+            reported type t_entity_reported.
+
+
     METHODS earlynumbering_cba_Booking FOR NUMBERING
       entities FOR CREATE Travel\_Booking.
     METHODS earlynumbering_create FOR NUMBERING
@@ -26,6 +101,50 @@ ENDCLASS.
 CLASS lhc_Travel IMPLEMENTATION.
 
   METHOD get_instance_authorizations.
+
+    DATA : ls_result like line of result.
+
+    "Step 1: Read the data for which we need to check
+    READ ENTITIES OF ZATS_AB_M_TRAVEL IN LOCAL MODE
+        ENTITY travel
+        fields ( travelid overallstatus )
+        with corRESPONDING #( keys )
+            RESULT data(lt_travel)
+            FAILED data(ls_Failed).
+
+
+    "Step 2: loop at the data which user is trying to edit
+    loop AT lt_travel into data(ls_travel).
+
+        "Step 3: Check if the travel request is rejected
+        if ( ls_travel-OverallStatus = 'X' ).
+            data(lv_auth) = abap_false.
+
+            "Step 4: check if given user is Manager or not, if yes, allow edit of travel req.
+            AUTHORITY-CHECK OBJECT 'ZAT_AB_MGR'
+            ID 'ACTVT' FIELD '03'.
+            if ( sy-subrc =  0 ).
+                lv_auth = abap_true.
+            endif.
+
+        else.
+            lv_auth = abap_true.
+        endif.
+
+        ls_result = value #( travelid = ls_travel-TravelId
+                             %update = COND #( when lv_auth eq abap_False
+                                                    then if_abap_behv=>auth-unauthorized
+                                                    else if_abap_behv=>auth-allowed
+                                             )
+                            %action-Edit = COND #( when lv_auth eq abap_False
+                                                    then if_abap_behv=>auth-unauthorized
+                                                    else if_abap_behv=>auth-allowed
+                                             )
+        ).
+
+        append ls_result to result.
+
+    endloop.
 
   ENDMETHOD.
 
@@ -533,6 +652,99 @@ CLASS lhc_Travel IMPLEMENTATION.
 
     endloop.
 
+
+
+  ENDMETHOD.
+
+  METHOD precheck_create.
+    precheck_anubhav_reuse(
+      EXPORTING
+        entity_c = entities
+      IMPORTING
+        failed   = failed
+        reported = reported
+    ).
+  ENDMETHOD.
+
+  METHOD precheck_update.
+    precheck_anubhav_reuse(
+      EXPORTING
+        entity_u = entities
+      IMPORTING
+        failed   = failed
+        reported = reported
+    ).
+  ENDMETHOD.
+
+
+
+  METHOD precheck_anubhav_reuse.
+
+    "Step 1: data declaration
+    data : entities type t_entity_update,
+           operation type char1,
+           agencies type sorTED TABLE OF /dmo/agency with unique key agency_id,
+           customers type sorTED TABLE OF /dmo/customer with unique key customer_id.
+
+    "Step 2: Check either C or U data was passed
+    ASSERT not ( entity_c is initial equiv entity_u is initial ).
+
+    "Step 3: perform the validation only if the Agency or customer was changed
+    if entity_c is not iniTIAL.
+        entities = CORRESPONDING #( entity_c ).
+        operation = if_abap_behv=>op-m-create.
+    else.
+        entities = CORRESPONDING #( entity_u ).
+        operation = if_abap_behv=>op-m-update.
+    endif.
+
+
+    delete entities where %control-AgencyId = if_abap_behv=>mk-off and
+                            %control-CustomerId = if_abap_behv=>mk-off .
+
+    "Step 4: Get all the unique agencies and customers in our itab to query db later
+    agencies = CORRESPONDING #( entities DISCARDING DUPLICATES MAPPING agency_id = agencyid EXCEPT * ).
+    customers = CORRESPONDING #( entities DISCARDING DUPLICATES MAPPING customer_id = customerid EXCEPT * ).
+
+    ""Step 5: Check the agency and customer in DB table and fetch the valid one's - get the country codes
+
+    select from /dmo/agency fields agency_id, country_code
+        for all entRIES IN @agencies where agency_id = @agencies-agency_id
+        into table @data(agency_country_codes).
+    select from /dmo/customer fields customer_id, country_code
+        for all entRIES IN @customers where customer_id = @customers-customer_id
+        into table @data(customer_country_codes).
+
+    loop at entities into data(entity).
+
+        read table agency_country_codes with key agency_id = entity-AgencyId into data(ls_agency).
+        CHECK sy-subrc = 0.
+        read table customer_country_codes with key customer_id = entity-CustomerId into data(ls_customer).
+        CHECK sy-subrc = 0.
+
+        if ls_agency-country_code <> ls_customer-country_code.
+
+            append value #( %cid = cond #(  when operation = if_abap_behv=>op-m-create then entity-%cid_ref )
+                            %is_draft = entity-%is_draft
+                            %fail-cause = if_abap_behv=>cause-conflict
+             ) to failed-travel.
+            append value #( %cid = cond #(  when operation = if_abap_behv=>op-m-create then entity-%cid_ref )
+                            %is_draft = entity-%is_draft
+                            %element-customerid = if_abap_behv=>mk-on
+                            %element-agencyid = if_abap_behv=>mk-on
+                            %msg = new /dmo/cm_flight_messages(
+                                textid = value #( msgid = 'SY' msgno = 499
+                                                  attr1 = entity-CustomerId
+                                                  attr2 = ' is not have same country as agency '
+                                                  attr3 = entity-CustomerId
+                                )
+                                severity = if_abap_behv_message=>severity-error
+                             )
+            ) to reported-travel.
+
+        endif.
+
+    endloop.
 
 
   ENDMETHOD.

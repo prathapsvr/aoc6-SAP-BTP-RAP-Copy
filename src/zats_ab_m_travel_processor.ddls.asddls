@@ -25,5 +25,11 @@ define root view entity ZATS_AB_M_TRAVEL_PROCESSOR as projection on ZATS_AB_M_TR
     CustomerName,
     StatusText,
     Minion,
-    ImageUrl
+    ImageUrl,
+    @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZCL_ATS_AB_VE_CALC'
+    @EndUserText.label: 'Co2 Tax'
+    virtual CO2Tax : abap.int4,
+    @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZCL_ATS_AB_VE_CALC'
+    @EndUserText.label: 'Day'
+    virtual dayOfTravel: abap.char(9)
 }

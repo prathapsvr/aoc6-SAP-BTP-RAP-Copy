@@ -97,5 +97,10 @@ annotate entity ZATS_AB_M_TRAVEL_PROCESSOR
     @UI.fieldGroup: [{ position: 40, qualifier: 'superman' }]
     @UI.dataPoint: { qualifier: 'statusData', title: 'Travel Status', criticality: 'Minion' }
     OverallStatus;
+    
+    @UI.lineItem: [{ position: 80, importance: #HIGH }]
+    dayOfTravel;
+    @UI.lineItem: [{ position: 90, importance: #HIGH }]
+    CO2Tax;
    
 }

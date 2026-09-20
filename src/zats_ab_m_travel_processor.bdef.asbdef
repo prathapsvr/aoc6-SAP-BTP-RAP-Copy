@@ -4,8 +4,9 @@ use collaborative draft;
 //to make determine action work, expose side effects in the b projection
 use side effects;
 define behavior for ZATS_AB_M_TRAVEL_PROCESSOR alias Travel
+implementation in class zbp_ats_ab_m_trproc unique
 {
-  use create;
+  use create (augment);
   use update;
   use delete;
 

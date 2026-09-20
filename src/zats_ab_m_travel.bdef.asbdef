@@ -1,5 +1,5 @@
 //greenfield where we want framework to generate basic impl. code
-managed ;
+managed implementation in class zbp_ats_ab_m_travel unique;
 //best practice which compile our code in strict mode 2
 strict ( 2 );
 //enable draft support
@@ -25,10 +25,12 @@ etag master LastChangedAt
 //early numbering to generate travel id
 early numbering
 //late numbering
+//Additional Save for logging purpose
+with additional save
 {
   //AUTHORITY-CHECK to ensure that a valid user is performing task on our Tx.
-  create ( authorization : global );
-  update;
+  create ( authorization : global, precheck );
+  update ( precheck );
   delete;
 
   //enable draft actions - in future i can use code to trigger w/f, send email...

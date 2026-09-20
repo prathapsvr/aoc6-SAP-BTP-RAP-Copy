@@ -1,0 +1,49 @@
+managed implementation in class ZBP_R_ATS_AB_SO_HDR unique;
+strict ( 2 );
+with draft;
+extensible;
+define behavior for ZR_ATS_AB_SO_HDR alias ZrAtsAbSoHdr
+persistent table ZATS_AB_SO_HDR
+extensible
+draft table ZATS_AB_SO_HDR_D
+etag master ChangedAt
+lock master total etag ChangedAt
+authorization master( global )
+{
+  field ( mandatory : create )
+   OrderID;
+
+  field ( readonly )
+   CreatedBy,
+   CreatedAt,
+   ChangedBy,
+   ChangedAt;
+
+  field ( readonly : update )
+   OrderID;
+
+
+  create;
+  update;
+  delete;
+
+  draft action Activate optimized;
+  draft action Discard;
+  draft action Edit;
+  draft action Resume;
+  draft determine action Prepare;
+
+  mapping for ZATS_AB_SO_HDR corresponding extensible
+  {
+    OrderID = ORDER_ID;
+    OrderNo = ORDER_NO;
+    Buyer = BUYER;
+    GrossAmount = GROSS_AMOUNT;
+    CurrencyCode = CURRENCY_CODE;
+    CreatedBy = CREATED_BY;
+    CreatedAt = CREATED_AT;
+    ChangedBy = CHANGED_BY;
+    ChangedAt = CHANGED_AT;
+  }
+
+}
