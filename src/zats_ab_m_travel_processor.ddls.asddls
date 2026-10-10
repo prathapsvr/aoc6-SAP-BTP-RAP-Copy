@@ -18,6 +18,7 @@ define root view entity ZATS_AB_M_TRAVEL_PROCESSOR as projection on ZATS_AB_M_TR
     /* Associations */
     _Agency,
     _Booking: redirected to composition child ZATS_AB_M_BOOKING_PROCESSOR,
+    _Attachment: redirected to composition child ZATS_AB_M_TATTACH_PROCESSOR,
     _Currency,
     _Customer,
     _OverallStatus,

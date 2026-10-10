@@ -23,6 +23,7 @@ implementation in class zbp_ats_ab_m_trproc unique
   use action copyTravel;
 
   use association _Booking { create; with draft; }
+  use association _Attachment { create; with draft; }
 }
 
 define behavior for ZATS_AB_M_BOOKING_PROCESSOR alias Booking
@@ -41,4 +42,12 @@ define behavior for ZATS_AB_M_BOOKSUPPL_PROCESSOR alias BookSuppl
 
   use association _Travel { with draft; }
   use association _Booking { with draft; }
+}
+
+define behavior for ZATS_AB_M_TATTACH_PROCESSOR alias Attachments
+{
+  use update;
+  use delete;
+
+  use association _Travel { with draft; }
 }

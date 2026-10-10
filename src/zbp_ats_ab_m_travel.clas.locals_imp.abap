@@ -75,6 +75,11 @@ CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
 
     METHODS precheck_update FOR PRECHECK
       entities FOR UPDATE travel.
+    METHODS accepttravel FOR MODIFY
+      keys FOR ACTION travel~accepttravel RESULT result.
+
+    METHODS rejecttravel FOR MODIFY
+      keys FOR ACTION travel~rejecttravel RESULT result.
 
     ""A reusable private method with matching io params and types to reuse code
     types: t_entity_create   type table for create              zats_ab_m_travel\\travel,
@@ -322,6 +327,14 @@ CLASS lhc_Travel IMPLEMENTATION.
      result = value #( for travel in lt_travels (
                             %tky = travel-%tky
                             %assoc-_Booking = lv_allow
+                            %action-acceptTravel = COND #( WHEN travel-OverallStatus = 'A'
+                                                            then if_abap_behv=>fc-o-disabled
+                                                            else if_abap_behv=>fc-o-enabled
+                                                         )
+                            %action-rejectTravel = COND #( WHEN travel-OverallStatus = 'X'
+                                then if_abap_behv=>fc-o-disabled
+                                else if_abap_behv=>fc-o-enabled
+                             )
                          ) ).
 
 
@@ -745,6 +758,59 @@ CLASS lhc_Travel IMPLEMENTATION.
         endif.
 
     endloop.
+
+
+  ENDMETHOD.
+
+  METHOD acceptTravel.
+
+    ""Perform the change on BO instance using EML
+    MODIFY ENTITIES OF ZATS_AB_M_TRAVEL IN LOCAL MODE
+        ENTITY Travel
+        UPDATE FIELDS ( OverallStatus )
+        WITH VALUE #( FOR key in KEYS (
+                                %tky = key-%tky
+                                %is_draft = key-%is_draft
+                                OverallStatus = 'A'
+         ) ).
+
+    ""Read the BO instance again from DB to send back to UI
+    READ ENTITIES OF ZATS_AB_M_TRAVEL IN LOCAL MODE
+        Entity Travel
+        All Fields
+        With CORRESPONDING #( keys )
+        result data(lt_results).
+
+    result = value #( for travel in lt_results ( %tky = travel-%tky
+                                                 %param = travel
+     ) ).
+
+
+  ENDMETHOD.
+
+  METHOD rejectTravel.
+
+
+    ""Perform the change on BO instance using EML
+    MODIFY ENTITIES OF ZATS_AB_M_TRAVEL IN LOCAL MODE
+        ENTITY Travel
+        UPDATE FIELDS ( OverallStatus )
+        WITH VALUE #( FOR key in KEYS (
+                                %tky = key-%tky
+                                %is_draft = key-%is_draft
+                                OverallStatus = 'X'
+         ) ).
+
+    ""Read the BO instance again from DB to send back to UI
+    READ ENTITIES OF ZATS_AB_M_TRAVEL IN LOCAL MODE
+        Entity Travel
+        All Fields
+        With CORRESPONDING #( keys )
+        result data(lt_results).
+
+    result = value #( for travel in lt_results ( %tky = travel-%tky
+                                                 %param = travel
+     ) ).
 
 
   ENDMETHOD.

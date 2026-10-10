@@ -47,6 +47,8 @@ with additional save
 
   //factory - instance bound - data action
   factory action copyTravel[1];
+  action (features : instance) acceptTravel result[1] $self;
+  action (features : instance) rejectTravel result[1] $self;
 
   //internal action = private method for reusability
   internal action calcTotalPrice;
@@ -73,6 +75,7 @@ with additional save
   //direct booking w/o a travel is not possible
   //dynamic feature control //
   association _Booking { create (features:instance); with draft; }
+  association _Attachment { create; with draft; }
 
   mapping for /dmo/travel_m{
     travelid = travel_id;
@@ -166,5 +169,38 @@ early numbering
     price = price;
     CurrencyCode = currency_code;
     LastChangedAt = last_changed_at;
+  }
+}
+
+
+define behavior for ZATS_AB_M_TATTACH alias Attachment
+//add a new line for new class pool so prachi can work with booking parallel to amit
+persistent table zats_ab_att
+//define table to store booking draft data
+draft table zats_ab_datt
+lock dependent by _Travel
+authorization dependent by _Travel
+etag master LastChangedAt
+{
+  update;
+  delete;
+  field ( readonly  ) TravelId;
+  field ( numbering : managed ) id;
+
+  association _Travel {with draft;}
+
+  mapping for zats_ab_att{
+    TravelId = travel_id;
+    id = id;
+    Attachment = attachment;
+    Filename = filename;
+    Filetype = filetype;
+    Memo = memo;
+    LastChangedAt = last_changed_at;
+    LocalCreatedAt = local_created_at;
+    LocalCreatedBy = local_created_by;
+    LocalLastChangedAt = local_last_changed_at;
+    LocalLastChangedBy = local_last_changed_by;
+
   }
 }
