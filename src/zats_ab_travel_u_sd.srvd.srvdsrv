@@ -1,0 +1,4 @@
+@EndUserText.label: 'Service definition for Unmanaged Travel'
+define service ZATS_AB_TRAVEL_U_SD {
+  expose ZATS_AB_TRAVEL_U as Travel;
+}
