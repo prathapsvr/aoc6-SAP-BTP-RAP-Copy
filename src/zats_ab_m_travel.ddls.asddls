@@ -20,7 +20,7 @@ association[1] to /DMO/I_Overall_Status_VH as _OverallStatus on
     @Consumption.valueHelpDefinition: [
                 {
                     entity.name: 'ZATS_AB_CAGENCY',
-                    entity.element: 'AgencyId'
+                    entity.element: 'agency_id'
                 }
     ]
     /dmo/travel_m.agency_id as AgencyId,

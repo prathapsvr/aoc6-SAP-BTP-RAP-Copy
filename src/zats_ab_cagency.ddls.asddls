@@ -2,13 +2,12 @@
 @ObjectModel.query.implementedBy: 'ABAP:ZCL_ATS_AB_AGENCY'
 define custom entity ZATS_AB_CAGENCY
 {
-  key AgencyId : abap.char( 6 );
-  Name : abap.char( 31 );
-  Street: abap.char( 30 );
-  PostalCode: abap.char( 10 );
-  City: abap.char( 25 );
-  Country: abap.char( 3 );
-  PhoneNumber: abap.char( 30 );
-  WebAddress: abap.char( 255 );
-  
+  key agency_id    : abap.char( 6 );
+      name         : abap.char( 31 );
+      street       : abap.char( 30 );
+      postal_code  : abap.char( 10 );
+      city         : abap.char( 25 );
+      country      : abap.char( 3 );   
+      phone_number : abap.char( 30 );
+      web_address  : abap.char( 255 );
 }
