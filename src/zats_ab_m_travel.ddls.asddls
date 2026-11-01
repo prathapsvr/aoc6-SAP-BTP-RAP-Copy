@@ -19,8 +19,8 @@ association[1] to /DMO/I_Overall_Status_VH as _OverallStatus on
     @ObjectModel.text.element: [ 'AgencyName' ]
     @Consumption.valueHelpDefinition: [
                 {
-                    entity.name: '/DMO/I_Agency',
-                    entity.element: 'AgencyID'
+                    entity.name: 'ZATS_AB_CAGENCY',
+                    entity.element: 'AgencyId'
                 }
     ]
     /dmo/travel_m.agency_id as AgencyId,
